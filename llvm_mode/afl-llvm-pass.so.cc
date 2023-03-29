@@ -178,7 +178,7 @@ static bool isBlacklisted(const Function *F) {
   return false;
 }
 
-bool AFLCoverage::runOnModule(Module &M) {
+bool AFLCoverage::runOnModule(Module &M) {//
 
   bool is_aflgo = false;
   bool is_aflgo_preprocessing = false;
@@ -192,9 +192,9 @@ bool AFLCoverage::runOnModule(Module &M) {
   std::map<std::string, int> bb_to_dis;
   std::vector<std::string> basic_blocks;
 
-  if (!TargetsFile.empty()) {
+  if (!TargetsFile.empty()) {//compilation stage1：analysis
 
-    if (OutDirectory.empty()) {
+    if (OutDirectory.empty()) {//output dir of analysis results
       FATAL("Provide output directory '-outdir <directory>'");
       return false;
     }

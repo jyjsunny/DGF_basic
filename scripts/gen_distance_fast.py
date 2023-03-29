@@ -289,8 +289,8 @@ def main():
 
     STEP = get_resume(args)
     if not STEP:
-        construct_callgraph(args, binaries),
-    calculating_distances(args),
+        construct_callgraph(args, binaries),#由llvm的.bc文件首次生成调用图。
+    calculating_distances(args),#执行 distance_calculator/main.cpp for actual distance calculation.
     done(args)
 
 

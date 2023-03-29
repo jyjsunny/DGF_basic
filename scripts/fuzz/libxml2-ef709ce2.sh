@@ -1,3 +1,6 @@
+export AFLGO=$HOME/aflgo
+export AFLCOV=/root/afl-cov
+
 git clone https://gitlab.gnome.org/GNOME/libxml2.git libxml2_ef709ce2
 cd libxml2_ef709ce2; git checkout ef709ce2
 mkdir obj-aflgo; mkdir obj-aflgo/temp

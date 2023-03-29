@@ -92,17 +92,17 @@ void distance(
     }
 
     double distance = -1;
-    for (vertex_desc n : find_nodes(G, name)) {
-        std::vector<int> distances(bo::num_vertices(G), 0);
-        init_distances_from(G, n, distances);
+    for (vertex_desc n : find_nodes(G, name)) {//难道一个name可以对应多个node？？？
+        std::vector<int> distances(bo::num_vertices(G), 0);//对于每个node，记录它到各个node的距离
+        init_distances_from(G, n, distances);//在CG中计算node n到所有点的最短距离
 
         double d = 0.0;
         unsigned i = 0;
-        if (is_cg) {
-            for (vertex_desc t : targets) {
+        if (is_cg) {//CG层面上
+            for (vertex_desc t : targets) {//对于node n遍历targets中的每个node t
                 auto shortest = distances[t];           // shortest distance from n to t
-                if (shortest == 0 and n != t) continue; // not reachable
-                d += 1.0 / (1.0 + static_cast<double>(shortest));
+                if (shortest == 0 and n != t) continue; // not reachable，n到t无可达路径
+                d += 1.0 / (1.0 + static_cast<double>(shortest));//对于多个targets算调和平均数
                 ++i;
             }
         } else {
@@ -138,10 +138,10 @@ std::vector<vertex_desc> cg_calculation(
 ) {
     cout << "Loading targets..\n";
     std::vector<vertex_desc> targets;
-    for (std::string line; getline(target_stream, line); ) {
+    for (std::string line; getline(target_stream, line); ) {//遍历Ftargets文件中的每个targets
         bo::trim(line);
-        for (auto t : find_nodes(G, line)) {
-            targets.push_back(t);
+        for (auto t : find_nodes(G, line)) {//在G中找到当前targets对应的实际node
+            targets.push_back(t);//将targeted node加入到vertex_desc类型的数组中
         }
     }
     if (targets.empty()) {
@@ -152,45 +152,46 @@ std::vector<vertex_desc> cg_calculation(
 }
 
 std::vector<vertex_desc> cfg_calculation(
-    graph_t &G,
-    std::ifstream &targets_stream,
-    std::ifstream &cg_distance_stream,
-    std::ifstream &cg_callsites_stream,
-    unordered_map<std::string, double> &cg_distance,
+    graph_t &G,//  one of cfg.*.dot,表示目前只考虑当前函数
+    std::ifstream &targets_stream,//BBtargets.txt
+    std::ifstream &cg_distance_stream,//callgraph.distance.txt
+    std::ifstream &cg_callsites_stream,//BBcalls.txt
+    unordered_map<std::string, double> &cg_distance,//用于存储函数到target的函数级别距离
     unordered_map<std::string, double> &bb_distance
 ) {
     std::vector<vertex_desc> targets;
-    for (std::string line; getline(cg_distance_stream, line); ) {
+    //调用图距离文件被传入无序map中能够将函数名称映射到距离
+    for (std::string line; getline(cg_distance_stream, line); ) {//？？每次遍历都所有的都存一遍？
         bo::trim(line);
         std::vector<std::string> splits;
         bo::algorithm::split(splits, line, bo::is_any_of(","));;
         assert(splits.size() == 2);
-        cg_distance[splits[0]] = std::stod(splits[1]);
+        cg_distance[splits[0]] = std::stod(splits[1]);//存储当前函数到target的距离映射关系
     }
-    if (cg_distance.empty()) {
+    if (cg_distance.empty()) {//没有能到target的函数
         cerr << "Call graph distance file is empty.\n";
         exit(0);
     }
-
-    for (std::string line; getline(cg_callsites_stream, line); ) {
+    //遍历每一个基本块
+    for (std::string line; getline(cg_callsites_stream, line); ) {//BBcalls.txt
         bo::trim(line);
-        std::vector<std::string> splits;
+        std::vector<std::string> splits;//splite[0]:caller, splite[1]:callee
         bo::algorithm::split(splits, line, bo::is_any_of(","));;
         assert(splits.size() == 2);
-        if (not find_nodes(G, splits[0]).empty()) {
-            if (cg_distance.find(splits[1]) != cg_distance.end()) {
+        if (not find_nodes(G, splits[0]).empty()) {//如果当前G代表的这个函数内部有基本块存在callsite
+            if (cg_distance.find(splits[1]) != cg_distance.end()) {//找到了存储的callee到target的距离
                 if (bb_distance.find(splits[0]) != bb_distance.end()) {
                     if (bb_distance[splits[0]] > cg_distance[splits[1]]) {
                         bb_distance[splits[0]] = cg_distance[splits[1]];
                     }
                 } else {
-                    bb_distance[splits[0]] = cg_distance[splits[1]];
+                    bb_distance[splits[0]] = cg_distance[splits[1]];//存储基本块级别距离：caller BB到targets 函数的距离等于 callee目标函数的距离
                 }
             }
         }
     }
     cout << "Adding target BBs (if any)..\n";
-    for (std::string line; getline(targets_stream, line); ) {
+    for (std::string line; getline(targets_stream, line); ) {//BBtargets.txt
         bo::trim(line);
         std::vector<std::string> splits;
         bo::algorithm::split(splits, line, bo::is_any_of("/"));;
@@ -274,9 +275,9 @@ int main(int argc, char *argv[]) {
     unordered_map<std::string, double> cg_distance;
     unordered_map<std::string, double> bb_distance;
 
-    if (is_cg) {
-        targets = cg_calculation(graph, targets_stream);
-    } else {
+    if (is_cg) {//1. 调用图级距离
+        targets = cg_calculation(graph, targets_stream);//！
+    } else {//2. 基本块级距离
         if (not vm.count("cg_distance")) {
             cerr << "error: the required argument for option '--cg_distance' is missing\n";
             exit(1);
@@ -293,7 +294,7 @@ int main(int argc, char *argv[]) {
         std::string &caller = splits.end()[-2];
         cout << "Loading cg_distance for function '" << caller << "'..\n";
         targets = cfg_calculation(graph, targets_stream, cg_distance_stream,
-                                  cg_callsites_stream, cg_distance, bb_distance);
+                                  cg_callsites_stream, cg_distance, bb_distance);//！
     }
 
     cout << "Calculating distance..\n";
